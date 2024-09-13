@@ -1,6 +1,8 @@
 document.getElementById('riskForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
+    console.log('Form submitted'); // Debugging line
+
     const simulations = parseInt(document.getElementById('simulations').value);
     const lower = parseInt(document.getElementById('lower').value);
     const upper = parseInt(document.getElementById('upper').value);
@@ -14,6 +16,8 @@ document.getElementById('riskForm').addEventListener('submit', function(e) {
 
 class RiskModel {
     constructor(simulations, lower, upper, confidenceLevel, events, reserve) {
+        console.log('RiskModel constructor called'); // Debugging line
+
         this.simulations = simulations;
         this.lower = lower;
         this.upper = upper;
@@ -28,12 +32,14 @@ class RiskModel {
     }
 
     calculateParameters() {
+        console.log('Calculating parameters'); // Debugging line
         const error = (1 - this.confidenceLevel) / 2;
         this.trueMeanLog = (Math.log(this.lower) + Math.log(this.upper)) / 2;
         this.trueSdLog = (Math.log(this.upper) - Math.log(this.lower)) / (2 * this.inverseCumulativeNormalDistribution(0.9));
     }
 
     generateDistributions() {
+        console.log('Generating distributions'); // Debugging line
         this.loss = [];
         this.prob = [];
         for (let i = 0; i < this.simulations; i++) {
@@ -45,6 +51,7 @@ class RiskModel {
     }
 
     combineDistributions() {
+        console.log('Combining distributions'); // Debugging line
         this.totalLoss = [];
         for (let i = 0; i < this.simulations; i++) {
             this.totalLoss.push(this.prob[i] * this.loss[i]);
@@ -52,9 +59,9 @@ class RiskModel {
     }
 
     calculateMetrics() {
+        console.log('Calculating metrics'); // Debugging line
         this.meanLoss = this.mean(this.totalLoss);
         this.medianLoss = this.median(this.totalLoss);
-        this.stdLoss = this.standardDeviation(this.totalLoss);
         this.var = this.percentile(this.totalLoss, 95);
         this.cvar = this.mean(this.totalLoss.filter(loss => loss > this.var));
         this.lossAtReserve = this.percentile(this.totalLoss, this.reserve * 100);
@@ -65,6 +72,7 @@ class RiskModel {
     }
 
     summary() {
+        console.log('Displaying summary'); // Debugging line
         const resultsElement = document.getElementById('results');
         resultsElement.innerHTML = `
             <p>Mean Loss: ${this.meanLoss.toFixed(2)}</p>
@@ -79,10 +87,12 @@ class RiskModel {
     }
 
     logNormalDistribution(sd, mean) {
+        console.log('Generating log-normal distribution'); // Debugging line
         return Math.exp(this.randomNormal(mean, sd));
     }
 
     poissonDistribution(lambda) {
+        console.log('Generating Poisson distribution'); // Debugging line
         let L = Math.exp(-lambda);
         let k = 0;
         let p = 1.0;
@@ -94,7 +104,7 @@ class RiskModel {
     }
 
     inverseCumulativeNormalDistribution(p) {
-        // Approximation constants
+        console.log('Calculating inverse cumulative normal distribution'); // Debugging line
         const a1 = -39.6968302866538, a2 = 220.946098424521, a3 = -275.928510446969;
         const a4 = 138.357751867269, a5 = -30.6647980661472, a6 = 2.50662827745924;
         const b1 = -54.4760987982241, b2 = 161.585836858041, b3 = -155.698979859887;
@@ -126,6 +136,7 @@ class RiskModel {
     }
 
     randomNormal(mean = 0, stdDev = 1) {
+        console.log('Generating random normal distribution'); // Debugging line
         let u1 = Math.random();
         let u2 = Math.random();
         let randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
