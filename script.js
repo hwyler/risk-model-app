@@ -25,7 +25,7 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   let median_loss = total_loss.sort((a, b) => a - b)[Math.floor(simulations / 2)];
   let std_loss = Math.sqrt(total_loss.reduce((a, b) => a + Math.pow(b - mean_loss, 2), 0) / simulations);
   let var = total_loss.sort((a, b) => a - b)[Math.floor(0.95 * simulations)];
-  let cvar = total_loss.filter(x => x > var).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > var).length;
+  let cvar = total_loss.filter(x => x > var).reduce((a, b) => a + b * prob[total_loss.indexOf(b)], 0) / total_loss.filter(x => x > var).length;
   let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * 100 * simulations / 100)];
   let percentiles = {};
   for (let p = 10; p <= 99; p += 10) {
@@ -43,36 +43,3 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
     percentiles: percentiles
   };
 }
-
-// Get the form data
-document.getElementById('riskForm').addEventListener('submit', function(event) {
-  event.preventDefault();
-
-  let simulations = document.getElementById('simulations').value;
-  let lower = document.getElementById('lower').value;
-  let upper = document.getElementById('upper').value;
-  let confidence_level = document.getElementById('confidence_level').value;
-  let events = document.getElementById('events').value;
-  let reserve = document.getElementById('reserve').value;
-
-  // Validate input
-  if (isNaN(simulations) || simulations <= 0 || isNaN(lower) || lower <= 0 || isNaN(upper) || upper <= 0 || isNaN(confidence_level) || confidence_level <= 0 || confidence_level > 1 || isNaN(events) || events <= 0 || isNaN(reserve) || reserve <= 0 || reserve > 1) {
-    document.getElementById('results').innerHTML = "<p>Invalid input. Please enter valid numbers.</p>";
-    return;
-  }
-
-  // Run the risk model
-  let result = riskModel(simulations, lower, upper, confidence_level, events, reserve);
-
-  // Display the results
-  document.getElementById('results').innerHTML = `
-    <p>Mean Loss: ${result.mean_loss}</p>
-    <p>Median Loss: ${result.median_loss}</p>
-    <p>Standard Deviation of Loss: ${result.std_loss}</p>
-    <p>Value at Risk (95%): ${result.var}</p>
-    <p>Conditional Value at Risk (95%): ${result.cvar}</p>
-    <p>${reserve * 100}th Percentile Loss: ${result.loss_at_reserve}</p>
-    <p>Percentiles:</p>
-    ${Object.keys(result.percentiles).map(p => `<p>P(${p}): ${result.percentiles[p]}</p>`).join('')}
-  `;
-});
