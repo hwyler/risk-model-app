@@ -9,27 +9,27 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   for (let i = 0; i < simulations; i++) {
     loss.push(Math.exp(Math.random() * true_sd_log + true_mean_log));
   }
-
-  // Combine distributions (Poisson approximation)
-  let total_loss = [];
+  let prob = [];
   for (let i = 0; i < simulations; i++) {
-    let event_count = Math.random() < (events / simulations) ? Math.floor(Math.random() * events + 1) : 0;
-    total_loss.push(event_count * loss[i]);
+    prob.push(Math.floor(Math.random() * events + 1));
   }
 
-  // Sort total loss for percentile calculations
-  total_loss.sort((a, b) => a - b);
+  // Combine distributions
+  let total_loss = [];
+  for (let i = 0; i < simulations; i++) {
+    total_loss.push(prob[i] * loss[i]);
+  }
 
   // Calculate metrics
   let mean_loss = total_loss.reduce((a, b) => a + b, 0) / simulations;
-  let median_loss = total_loss[Math.floor(simulations / 2)];
+  let median_loss = total_loss.sort((a, b) => a - b)[Math.floor(simulations / 2)];
   let std_loss = Math.sqrt(total_loss.reduce((a, b) => a + Math.pow(b - mean_loss, 2), 0) / simulations);
-  let var_95 = total_loss[Math.floor(0.95 * simulations)];
-  let cvar_95 = total_loss.filter(x => x > var_95).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > var_95).length;
-  let loss_at_reserve = total_loss[Math.floor(reserve * simulations)];
+  let varValue = total_loss.sort((a, b) => a - b)[Math.floor(0.95 * simulations)];
+  let cvar = total_loss.filter(x => x > varValue).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > varValue).length;
+  let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * simulations)];
   let percentiles = {};
   for (let p = 10; p <= 99; p += 10) {
-    percentiles[p] = total_loss[Math.floor(p / 100 * simulations)];
+    percentiles[p] = total_loss.sort((a, b) => a - b)[Math.floor(p * simulations / 100)];
   }
 
   // Return the calculated metrics
@@ -37,8 +37,8 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
     mean_loss: mean_loss.toFixed(2),
     median_loss: median_loss.toFixed(2),
     std_loss: std_loss.toFixed(2),
-    var: var_95.toFixed(2),
-    cvar: cvar_95.toFixed(2),
+    var: varValue.toFixed(2),
+    cvar: cvar.toFixed(2),
     loss_at_reserve: loss_at_reserve.toFixed(2),
     percentiles: percentiles
   };
@@ -65,14 +65,18 @@ document.getElementById('riskForm').addEventListener('submit', function(event) {
   let result = riskModel(simulations, lower, upper, confidence_level, events, reserve);
 
   // Display the results
-  document.getElementById('results').innerHTML = `
+  let resultHtml = `
     <p>Mean Loss: ${result.mean_loss}</p>
     <p>Median Loss: ${result.median_loss}</p>
     <p>Standard Deviation of Loss: ${result.std_loss}</p>
     <p>Value at Risk (95%): ${result.var}</p>
     <p>Conditional Value at Risk (95%): ${result.cvar}</p>
     <p>${(reserve * 100).toFixed(2)}th Percentile Loss: ${result.loss_at_reserve}</p>
-    <p>Percentiles:</p>
-    ${Object.keys(result.percentiles).map(p => `<p>P(${p}): ${result.percentiles[p]}</p>`).join('')}
+    <p><strong>Percentiles:</strong></p>
   `;
+  for (const [p, value] of Object.entries(result.percentiles)) {
+    resultHtml += `<p>P(${p}%): ${value}</p>`;
+  }
+
+  document.getElementById('results').innerHTML = resultHtml;
 });
