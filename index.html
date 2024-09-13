@@ -3,45 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Risk Model Simulation</title>
+    <title>Risk Model</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
+    <div class="container mt-5">
+        <h1>Risk Model Simulation</h1>
+        <form id="riskForm">
+            <div class="mb-3">
+                <label for="simulations" class="form-label">Simulations</label>
+                <input type="number" class="form-control" id="simulations" value="100000">
+            </div>
+            <div class="mb-3">
+                <label for="lower" class="form-label">Lower Bound</label>
+                <input type="number" class="form-control" id="lower" value="1000">
+            </div>
+            <div class="mb-3">
+                <label for="upper" class="form-label">Upper Bound</label>
+                <input type="number" class="form-control" id="upper" value="2000">
+            </div>
+            <div class="mb-3">
+                <label for="confidence_level" class="form-label">Confidence Level</label>
+                <input type="number" class="form-control" id="confidence_level" value="0.8">
+            </div>
+            <div class="mb-3">
+                <label for="events" class="form-label">Events</label>
+                <input type="number" class="form-control" id="events" value="4">
+            </div>
+            <div class="mb-3">
+                <label for="reserve" class="form-label">Reserve</label>
+                <input type="number" class="form-control" id="reserve" step="0.01" value="0.75">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="runModel()">RUN</button>
+        </form>
 
-<h1>Risk Model Simulation</h1>
-
-<form id="riskForm">
-    <label for="simulations">Simulations:</label>
-    <input type="number" id="simulations" name="simulations" value="1000"><br><br>
-
-    <label for="lower">Lower Bound:</label>
-    <input type="number" step="0.01" id="lower" name="lower" value="1000"><br><br>
-
-    <label for="upper">Upper Bound:</label>
-    <input type="number" step="0.01" id="upper" name="upper" value="10000"><br><br>
-
-    <label for="confidence_level">Confidence Level:</label>
-    <input type="number" step="0.01" id="confidence_level" name="confidence_level" value="0.95"><br><br>
-
-    <label for="events">Events:</label>
-    <input type="number" id="events" name="events" value="5"><br><br>
-
-    <label for="reserve">Reserve:</label>
-    <input type="number" step="0.01" id="reserve" name="reserve" value="10"><br><br>
-
-    <button type="button" onclick="runModel()">Run Simulation</button>
-</form>
-
-<div class="mt-5">
-    <h2>Results</h2>
-    <p id="results">
-        <!-- The results will be displayed here -->
-    </p>
-    <div id="plots">
-        <!-- The plots will be displayed here -->
+        <div class="mt-5">
+            <h2>Results</h2>
+            <p id="results">
+                <!-- The results will be displayed here -->
+            </p>
+        </div>
     </div>
-</div>
 
-<script src="script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>
