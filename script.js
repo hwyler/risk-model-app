@@ -11,6 +11,19 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   }
   let prob = [];
   for (let i = 0; i < simulations; i++) {
+    prob.pushfunction riskModel(simulations, lower, upper, confidence_level, events, reserve) {
+  // Calculate parameters
+  let log_ratio = Math.log(upper / lower);
+  let true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
+  let true_sd_log = log_ratio / (2 * 1.2815515655446004); // Approximated norm.ppf(0.9)
+
+  // Generate distributions
+  let loss = [];
+  for (let i = 0; i < simulations; i++) {
+    loss.push(Math.exp(Math.random() * true_sd_log + true_mean_log));
+  }
+  let prob = [];
+  for (let i = 0; i < simulations; i++) {
     prob.push(Math.floor(Math.random() * events + 1));
   }
 
