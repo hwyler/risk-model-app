@@ -1,4 +1,7 @@
 function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
+  // Set random seed
+  Math.seedrandom(123);
+
   // Calculate parameters
   let log_ratio = Math.log(upper / lower);
   let true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
@@ -66,11 +69,11 @@ function runModel() {
     <p>Standard Deviation of Loss: ${result.std_loss}</p>
     <p>Value at Risk (95%): ${result.valueAtRisk}</p>
     <p>${(reserve * 100).toFixed(0)}th Percentile Loss: ${result.loss_at_reserve}</p>
-    <p>Reserve Losses:</p>
+    <p>Reserves:</p>
   `;
 
   for (let p in result.percentiles) {
-    resultsHTML += `<p>P${p}: ${result.percentiles[p].toFixed(2)}</p>`;
+    resultsHTML += `<p>Reserve at ${p}%: ${result.percentiles[p].toFixed(2)}</p>`;
   }
 
   document.getElementById('results').innerHTML = resultsHTML;
