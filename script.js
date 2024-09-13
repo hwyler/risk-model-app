@@ -25,7 +25,10 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   let median_loss = total_loss.sort((a, b) => a - b)[Math.floor(simulations / 2)];
   let std_loss = Math.sqrt(total_loss.reduce((a, b) => a + Math.pow(b - mean_loss, 2), 0) / simulations);
   let var = total_loss.sort((a, b) => a - b)[Math.floor(0.95 * simulations)];
-  let cvar = total_loss.filter(x => x > var).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > var).length;
+  let cvar = 0;
+  if (total_loss.filter(x => x > var).length > 0) {
+    cvar = total_loss.filter(x => x > var).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > var).length;
+  }
   let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * 100 * simulations / 100)];
   let percentiles = {};
   for (let p = 10; p <= 99; p += 10) {
