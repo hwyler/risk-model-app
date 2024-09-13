@@ -4,6 +4,9 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   let true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
   let true_sd_log = log_ratio / (2 * 1.2815515655446004); // Approximated norm.ppf(0.9)
 
+  // Set the seed
+  Math.seedrandom(123);
+
   // Generate distributions
   let loss = [];
   for (let i = 0; i < simulations; i++) {
