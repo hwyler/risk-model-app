@@ -1,7 +1,30 @@
-function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
-  // Set random seed
-  Math.seedrandom(123);
+// Simple random number generator with seed
+(function() {
+  var m_w = 123;
+  var m_z = 987654321;
+  var mask = 0xffffffff;
 
+  // Takes any integer
+  Math.seedrandom = function(i) {
+    m_w = (123456789 + i) & mask;
+    m_z = (987654321 - i) & mask;
+  }
+
+  // Returns number between 0 (inclusive) and 1.0 (exclusive),
+  // just like Math.random().
+  Math.random = function() {
+    m_z = (36969 * (m_z & 65535) + (m_z >> 16)) & mask;
+    m_w = (18000 * (m_w & 65535) + (m_w >> 16)) & mask;
+    var result = ((m_z << 16) + (m_w & 65535)) >>> 0;
+    result /= 4294967296;
+    return result;
+  }
+})();
+
+// Set the seed
+Math.seedrandom(123);
+
+function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
   // Calculate parameters
   let log_ratio = Math.log(upper / lower);
   let true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
@@ -31,7 +54,7 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * simulations)];
   let percentiles = {};
   for (let p of [10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99]) {
-    percentiles[p] = total_loss.sort((a, b) => a - b)[Math.floor(p * simulations / 100)];
+    percentiles[p] = parseFloat(total_loss.sort((a, b) => a - b)[Math.floor(p * simulations / 100)].toFixed(2));
   }
 
   // Return the calculated metrics
@@ -44,6 +67,13 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
     percentiles: percentiles
   };
 }
+
+function runModel() {
+  let simulations = parseInt(document.getElementById('simulations').value);
+  let lower = parseFloat(document.getElementById('lower').value);
+  let upper = parseFloat(document.getElementById('upper').value);
+  let confidence_level = parseFloat(document.getElementById('confidence_level').value);
+  let events = parseInt(document.getElementById('events').value
 
 function runModel() {
   let simulations = parseInt(document.getElementById('simulations').value);
@@ -64,17 +94,22 @@ function runModel() {
 
   // Display the results
   let resultsHTML = `
-    <p>Mean Loss: ${result.mean_loss}</p>
-    <p>Median Loss: ${result.median_loss}</p>
-    <p>Standard Deviation of Loss: ${result.std_loss}</p>
-    <p>Value at Risk (95%): ${result.valueAtRisk}</p>
-    <p>${(reserve * 100).toFixed(0)}th Percentile Loss: ${result.loss_at_reserve}</p>
-    <p>Reserves:</p>
+    <p>Mean Loss: ${parseFloat(result.mean_loss).toFixed(2)}</p>
+    <p>Median Loss: ${parseFloat(result.median_loss).toFixed(2)}</p>
+    <p>Standard Deviation of Loss: ${parseFloat(result.std_loss).toFixed(2)}</p>
+    <p>Value at Risk (95%): ${parseFloat(result.valueAtRisk).toFixed(2)}</p>
+    <p>${(reserve * 100).toFixed(0)}th Percentile Loss: ${parseFloat(result.loss_at_reserve).toFixed(2)}</p>
+    <p>Percentiles:</p>
   `;
 
   for (let p in result.percentiles) {
-    resultsHTML += `<p>Reserve at ${p}%: ${result.percentiles[p].toFixed(2)}</p>`;
+    resultsHTML += `${p}%: ${result.percentiles[p]}\n`;
   }
 
   document.getElementById('results').innerHTML = resultsHTML;
 }
+
+
+
+
+
