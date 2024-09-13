@@ -8,19 +8,23 @@ document.getElementById('riskForm').addEventListener('submit', function(e) {
     const events = parseInt(document.getElementById('events').value);
     const reserve = parseFloat(document.getElementById('reserve').value);
 
-    // Simulate losses (simple logic for now, you can expand this)
+    // Simulate losses
     const losses = [];
     for (let i = 0; i < simulations; i++) {
         const randomLoss = Math.random() * (upper - lower) + lower;
         losses.push(randomLoss);
     }
 
+    // Sort losses for percentile and median calculations
+    losses.sort((a, b) => a - b);
+
     // Calculate summary metrics
     const meanLoss = losses.reduce((a, b) => a + b) / losses.length;
-    const medianLoss = losses.sort()[Math.floor(losses.length / 2)];
+    const medianLoss = losses[Math.floor(losses.length / 2)];
     const var_95 = losses[Math.floor(losses.length * 0.95)];
     const stdLoss = Math.sqrt(losses.map(x => Math.pow(x - meanLoss, 2)).reduce((a, b) => a + b) / losses.length);
-    const cvar = losses.filter(loss => loss > var_95).reduce((a, b) => a + b) / losses.filter(loss => loss > var_95).length;
+    const cvar = losses.filter(loss => loss > var_95).reduce((a, b) => a + b, 0) / losses.filter(loss => loss > var_95).length;
+    const lossAtReserve = losses[Math.floor(losses.length * reserve)];
 
     // Display results
     document.getElementById('results').innerHTML = `
@@ -29,7 +33,7 @@ document.getElementById('riskForm').addEventListener('submit', function(e) {
         <p>Standard Deviation of Loss: ${stdLoss.toFixed(2)}</p>
         <p>Value at Risk (95%): ${var_95.toFixed(2)}</p>
         <p>Conditional Value at Risk (95%): ${cvar.toFixed(2)}</p>
-        <p>${(reserve * 100).toFixed(1)}th Percentile Loss: ${losses[Math.floor(losses.length * reserve)].toFixed(2)}</p>
+        <p>${(reserve * 100).toFixed(1)}th Percentile Loss: ${lossAtReserve.toFixed(2)}</p>
     `;
 
     // Create a plot for the loss distribution using Plotly
