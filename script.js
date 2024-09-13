@@ -7,33 +7,41 @@ class RiskModel {
     this.events = events;
     this.reserve = reserve;
 
+    // Initialize random seed (not directly available in JS like numpy)
+    this.seed = 123;
+    this.randomSeed();
+
     this.calculateParameters();
     this.generateDistributions();
     this.combineDistributions();
     this.calculateMetrics();
   }
 
+  randomSeed() {
+    Math.random = (function(seed) {
+      return function() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      };
+    })(this.seed);
+  }
+
   calculateParameters() {
-    const zScore = this.inverseCumulativeNormalDistribution(this.confidenceLevel);
-    this.meanLog = (Math.log(this.lower) + Math.log(this.upper)) / 2;
-    this.sdLog = (Math.log(this.upper) - Math.log(this.lower)) / (2 * zScore);
+    const error = (1 - this.confidenceLevel) / 2;
+    const logUpperLowerRatio = Math.log(this.upper / this.lower);
+    this.lowerq = this.logNormalPpf(error, logUpperLowerRatio);
+    this.upperq = this.logNormalPpf(1 - error, logUpperLowerRatio);
+    this.trueMeanLog = (Math.log(this.lower) + Math.log(this.upper)) / 2;
+    this.trueSdLog = (Math.log(this.upper) - Math.log(this.lower)) / (2 * this.inverseCumulativeNormalDistribution(0.9));
   }
 
   generateDistributions() {
-    this.loss = [];
-    this.prob = [];
-
-    for (let i = 0; i < this.simulations; i++) {
-      const logNormal = this.logNormalDistribution(this.sdLog, Math.exp(this.meanLog));
-      const poisson = this.poissonDistribution(this.events);
-
-      this.loss.push(logNormal);
-      this.prob.push(poisson);
-    }
+    this.loss = Array.from({ length: this.simulations }, () => this.logNormalDistribution(this.trueSdLog, Math.exp(this.trueMeanLog)));
+    this.prob = Array.from({ length: this.simulations }, () => this.poissonDistribution(this.events));
   }
 
   combineDistributions() {
-    this.totalLoss = this.loss.map((ln, i) => ln * this.prob[i]);
+    this.totalLoss = this.prob.map((prob, i) => prob * this.loss[i]);
   }
 
   calculateMetrics() {
@@ -64,8 +72,7 @@ class RiskModel {
   }
 
   logNormalDistribution(sd, mean) {
-    const normalSample = Math.random() * sd + mean;
-    return Math.exp(normalSample);
+    return Math.exp(this.randomNormal() * sd + mean);
   }
 
   poissonDistribution(lambda) {
@@ -79,16 +86,56 @@ class RiskModel {
     return k - 1;
   }
 
+  logNormalPpf(p, logUpperLowerRatio) {
+    return Math.exp(this.inverseCumulativeNormalDistribution(p) * logUpperLowerRatio);
+  }
+
   inverseCumulativeNormalDistribution(p) {
-    // Approximation for inverse normal distribution (can be replaced with a library call)
-    const a1 = 0.319381530;
-    const a2 = -0.356563782;
-    const a3 = 1.781477937;
-    const a4 = -1.821255978;
-    const a5 = 1.330274429;
-    const t = 1 / (1 + 0.2316419 * (1 - p));
-    const tSquared = t * t;
-    return 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-tSquared / 2) / Math.sqrt(2 * Math.PI));
+    const a1 = -39.69683028665376,
+      a2 = 220.9460984245205,
+      a3 = -275.9285104469687,
+      a4 = 138.357751867269,
+      a5 = -30.66479806614716,
+      a6 = 2.506628277459239,
+      b1 = -54.47609879822406,
+      b2 = 161.5858368580409,
+      b3 = -155.6989798598866,
+      b4 = 66.80131188771972,
+      b5 = -13.28068155288572,
+      c1 = -7.784894002430293e-03,
+      c2 = -3.223964580411365e-01,
+      c3 = -2.400758277161838,
+      c4 = -2.549732539343734,
+      c5 = 4.374664141464968,
+      c6 = 2.938163982698783,
+      d1 = 7.784695709041462e-03,
+      d2 = 3.224671290700398e-01,
+      d3 = 2.445134137142996,
+      d4 = 3.754408661907416;
+
+    let q, r;
+
+    if (p < 0.02425) {
+      q = Math.sqrt(-2 * Math.log(p));
+      return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+        ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+    } else if (p > 0.97575) {
+      q = Math.sqrt(-2 * Math.log(1 - p));
+      return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+        ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+    } else {
+      q = p - 0.5;
+      r = q * q;
+      return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q /
+        (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
+    }
+  }
+
+  randomNormal() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   }
 
   mean(arr) {
@@ -114,6 +161,10 @@ class RiskModel {
     return sorted[index];
   }
 }
+
+// Usage
+const model = new RiskModel(100000, 1000, 2000, 0.8, 4, 0.75);
+model.summary();
 
 // Test
 const model = new RiskModel(1000, 50000, 200000, 0.95, 3, 0.95);
