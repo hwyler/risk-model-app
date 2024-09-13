@@ -14,74 +14,81 @@ class RiskModel {
   }
 
   calculateParameters() {
-    const error = (1 - this.confidenceLevel) / 2;
-    const trueMeanLog = (Math.log(this.lower) + Math.log(this.upper)) / 2;
-    const trueSdLog = (Math.log(this.upper) - Math.log(this.lower)) / (2 * this.inverseCumulativeNormalDistribution(0.9));
-    this.trueMeanLog = trueMeanLog;
-    this.trueSdLog = trueSdLog;
+    const zScore = this.inverseCumulativeNormalDistribution(this.confidenceLevel);
+    this.meanLog = (Math.log(this.lower) + Math.log(this.upper)) / 2;
+    this.sdLog = (Math.log(this.upper) - Math.log(this.lower)) / (2 * zScore);
   }
 
   generateDistributions() {
-    const loss = [];
-    const prob = [];
+    this.loss = [];
+    this.prob = [];
+
     for (let i = 0; i < this.simulations; i++) {
-      const logNormal = this.logNormalDistribution(this.trueSdLog, Math.exp(this.trueMeanLog));
-      loss.push(logNormal);
+      const logNormal = this.logNormalDistribution(this.sdLog, Math.exp(this.meanLog));
       const poisson = this.poissonDistribution(this.events);
-      prob.push(poisson);
+
+      this.loss.push(logNormal);
+      this.prob.push(poisson);
     }
-    this.loss = loss;
-    this.prob = prob;
   }
 
   combineDistributions() {
-    const totalLoss = [];
-    for (let i = 0; i < this.simulations; i++) {
-      totalLoss.push(this.prob[i] * this.loss[i]);
-    }
-    this.totalLoss = totalLoss;
+    this.totalLoss = this.loss.map((ln, i) => ln * this.prob[i]);
   }
 
   calculateMetrics() {
-    const meanLoss = this.mean(this.totalLoss);
-    const medianLoss = this.median(this.totalLoss);
-    const stdLoss = this.standardDeviation(this.totalLoss);
-    const valueAtRisk = this.percentile(this.totalLoss, 95);
-    const cvar = this.mean(this.totalLoss.filter(loss => loss > valueAtRisk));
-    const lossAtReserve = this.percentile(this.totalLoss, this.reserve * 100);
-    const percentiles = {};
+    this.meanLoss = this.mean(this.totalLoss);
+    this.medianLoss = this.median(this.totalLoss);
+    this.stdLoss = this.standardDeviation(this.totalLoss);
+    this.var = this.percentile(this.totalLoss, 95);
+    this.cvar = this.mean(this.totalLoss.filter(loss => loss > this.var));
+    this.lossAtReserve = this.percentile(this.totalLoss, this.reserve * 100);
+
+    this.percentiles = {};
     [10, 20, 30, 40, 50, 60, 70, 80, 90, 99].forEach(p => {
-      percentiles[p] = this.percentile(this.totalLoss, p);
+      this.percentiles[p] = this.percentile(this.totalLoss, p);
     });
-    this.meanLoss = meanLoss;
-    this.medianLoss = medianLoss;
-    this.stdLoss = stdLoss;
-    this.valueAtRisk = valueAtRisk;
-    this.cvar = cvar;
-    this.lossAtReserve = lossAtReserve;
-    this.percentiles = percentiles;
+  }
+
+  summary() {
+    console.log(`Mean Loss: ${this.meanLoss.toFixed(2)}`);
+    console.log(`Median Loss: ${this.medianLoss.toFixed(2)}`);
+    console.log(`Standard Deviation of Loss: ${this.stdLoss.toFixed(2)}`);
+    console.log(`Value at Risk (95%): ${this.var.toFixed(2)}`);
+    console.log(`Conditional Value at Risk (95%): ${this.cvar.toFixed(2)}`);
+    console.log(`${(this.reserve * 100).toFixed(1)}th Percentile Loss: ${this.lossAtReserve.toFixed(2)}`);
+    console.log("\nPercentiles:");
+    Object.keys(this.percentiles).forEach(p => {
+      console.log(`P(${p}): ${this.percentiles[p].toFixed(2)}`);
+    });
   }
 
   logNormalDistribution(sd, mean) {
-    return Math.exp(Math.random() * sd + mean);
+    const normalSample = Math.random() * sd + mean;
+    return Math.exp(normalSample);
   }
 
   poissonDistribution(lambda) {
-    let sum = 0;
-    for (let i = 0; i < lambda; i++) {
-      sum += Math.random();
-    }
-    return Math.floor(sum);
+    let L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    do {
+      k++;
+      p *= Math.random();
+    } while (p > L);
+    return k - 1;
   }
 
   inverseCumulativeNormalDistribution(p) {
+    // Approximation for inverse normal distribution (can be replaced with a library call)
     const a1 = 0.319381530;
     const a2 = -0.356563782;
     const a3 = 1.781477937;
     const a4 = -1.821255978;
     const a5 = 1.330274429;
-    const t = 1 / (1 + 0.2316419 * Math.abs(1 - p));
-    return 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-t * t / 2) / Math.sqrt(2 * Math.PI));
+    const t = 1 / (1 + 0.2316419 * (1 - p));
+    const tSquared = t * t;
+    return 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-tSquared / 2) / Math.sqrt(2 * Math.PI));
   }
 
   mean(arr) {
@@ -103,51 +110,11 @@ class RiskModel {
 
   percentile(arr, p) {
     const sorted = arr.slice().sort((a, b) => a - b);
-    const index = Math.floor(p / 100 * sorted.length);
+    const index = Math.floor((p / 100) * sorted.length);
     return sorted[index];
   }
 }
 
-// Form submission event listener
-document.getElementById('riskForm').addEventListener('submit', function (e) {
-  e.preventDefault();
-
-  const simulations = parseInt(document.getElementById('simulations').value);
-  const lower = parseInt(document.getElementById('lower').value);
-  const upper = parseInt(document.getElementById('upper').value);
-  const confidence_level = parseFloat(document.getElementById('confidence_level').value);
-  const events = parseInt(document.getElementById('events').value);
-  const reserve = parseFloat(document.getElementById('reserve').value);
-
-  const model = new RiskModel(simulations, lower, upper, confidence_level, events, reserve);
-  model.calculateMetrics();
-
-  document.getElementById('results').innerHTML = `
-    <p>Mean Loss: ${model.meanLoss.toFixed(2)}</p>
-    <p>Median Loss: ${model.medianLoss.toFixed(2)}</p>
-    <p>Standard Deviation of Loss: ${model.stdLoss.toFixed(2)}</p>
-    <p>Value at Risk (95%): ${model.valueAtRisk.toFixed(2)}</p>
-    <p>Conditional Value at Risk (95%): ${model.cvar.toFixed(2)}</p>
-    <p>${(reserve * 100).toFixed(1)}th Percentile Loss: ${model.lossAtReserve.toFixed(2)}</p>
-    <h3>Percentiles:</h3>
-    <ul>
-      ${Object.keys(model.percentiles).map(p => `<li>P(${p}): ${model.percentiles[p].toFixed(2)}</li>`).join('')}
-    </ul>
-  `;
-
-  // Create a plot for the loss distribution using Plotly
-  const trace1 = {
-    x: model.totalLoss,
-    type: 'histogram',
-    opacity: 0.7
-  };
-
-  const layout1 = {
-    title: 'Total Loss Distribution',
-    xaxis: { title: 'Loss' },
-    yaxis: { title: 'Frequency' }
-  };
-
-  Plotly.newPlot('plots', [trace1], layout1);
-});
-
+// Test
+const model = new RiskModel(1000, 50000, 200000, 0.95, 3, 0.95);
+model.summary();
