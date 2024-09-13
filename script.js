@@ -1,4 +1,3 @@
-// Function to run the risk model simulation
 function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
   console.log("Running risk model..."); // Debugging step
 
@@ -60,35 +59,96 @@ document.getElementById('riskForm').addEventListener('submit', function(event) {
   let upper = parseFloat(document.getElementById('upper').value);
   let confidence_level = parseFloat(document.getElementById('confidence_level').value);
   let events = parseInt(document.getElementById('events').value);
-  let reserve = parseFloat(document.getElementById('reserve').value);
+  let reserve = parseFloat(document.getElementById('reserve').value);document.getElementById("riskForm").addEventListener("submit", function (event) {
+    event.preventDefault();
 
-  // Validate input
-  if (
-    isNaN(simulations) || simulations <= 0 ||
-    isNaN(lower) || lower <= 0 ||
-    isNaN(upper) || upper <= 0 ||
-    isNaN(confidence_level) || confidence_level <= 0 || confidence_level > 1 ||
-    isNaN(events) || events <= 0 ||
-    isNaN(reserve) || reserve <= 0 || reserve > 1
-  ) {
-    document.getElementById('results').innerHTML = "<p>Invalid input. Please enter valid numbers.</p>";
-    return;
-  }
+    // Get form values
+    const simulations = parseInt(document.getElementById("simulations").value);
+    const lower = parseFloat(document.getElementById("lower").value);
+    const upper = parseFloat(document.getElementById("upper").value);
+    const confidence_level = parseFloat(document.getElementById("confidence_level").value);
+    const events = parseInt(document.getElementById("events").value);
+    const reserve = parseFloat(document.getElementById("reserve").value);
 
-  // Run the risk model
-  let result = riskModel(simulations, lower, upper, confidence_level, events, reserve);
+    // Run the risk model
+    const results = riskModel(simulations, lower, upper, confidence_level, events, reserve);
 
-  console.log(result);  // Debugging step: Check the result object
+    // Display results
+    document.getElementById("results").innerHTML = `
+        <p>Mean Loss: ${results.mean_loss}</p>
+        <p>Median Loss: ${results.median_loss}</p>
+        <p>Standard Deviation of Loss: ${results.std_loss}</p>
+        <p>Value at Risk (VaR): ${results.var}</p>
+        <p>Conditional Value at Risk (CVaR): ${results.cvar}</p>
+        <p>Loss at Reserve: ${results.loss_at_reserve}</p>
+        <p>Percentiles: ${JSON.stringify(results.percentiles)}</p>
+    `;
 
-  // Display the results
-  document.getElementById('results').innerHTML = `
-    <p>Mean Loss: ${result.mean_loss}</p>
-    <p>Median Loss: ${result.median_loss}</p>
-    <p>Standard Deviation of Loss: ${result.std_loss}</p>
-    <p>Value at Risk (95%): ${result.var}</p>
-    <p>Conditional Value at Risk (95%): ${result.cvar}</p>
-    <p>${reserve * 100}th Percentile Loss: ${result.loss_at_reserve}</p>
-    <p>Percentiles:</p>
-    ${Object.keys(result.percentiles).map(p => `<p>P(${p}): ${result.percentiles[p]}</p>`).join('')}
-  `;
+    // Plot distribution
+    plotDistribution(results.total_loss);
 });
+
+function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
+    // Calculate parameters
+    const log_ratio = Math.log(upper / lower);
+    const true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
+    const true_sd_log = log_ratio / (2 * 1.2815515655446004); // Approximated norm.ppf(0.9)
+
+    // Generate distributions
+    const loss = [];
+    for (let i = 0; i < simulations; i++) {
+        loss.push(Math.exp(Math.random() * true_sd_log + true_mean_log));
+    }
+
+    const prob = [];
+    for (let i = 0; i < simulations; i++) {
+        prob.push(Math.floor(Math.random() * events + 1));
+    }
+
+    // Combine distributions
+    const total_loss = [];
+    for (let i = 0; i < simulations; i++) {
+        total_loss.push(prob[i] * loss[i]);
+    }
+
+    // Calculate metrics
+    const mean_loss = total_loss.reduce((a, b) => a + b, 0) / simulations;
+    const sorted_loss = total_loss.slice().sort((a, b) => a - b);
+    const median_loss = sorted_loss[Math.floor(simulations / 2)];
+    const std_loss = Math.sqrt(total_loss.reduce((a, b) => a + Math.pow(b - mean_loss, 2), 0) / simulations);
+    const var = sorted_loss[Math.floor((1 - confidence_level) * simulations)];
+    const cvar = sorted_loss.filter(x => x > var).reduce((a, b) => a + b, 0) / sorted_loss.filter(x => x > var).length;
+    const loss_at_reserve = sorted_loss[Math.floor(reserve * simulations)];
+
+    const percentiles = {};
+    for (let p = 10; p <= 99; p += 10) {
+        percentiles[p] = sorted_loss[Math.floor(p * simulations / 100)];
+    }
+
+    // Return the calculated metrics
+    return {
+        mean_loss: mean_loss.toFixed(2),
+        median_loss: median_loss.toFixed(2),
+        std_loss: std_loss.toFixed(2),
+        var: var.toFixed(2),
+        cvar: cvar.toFixed(2),
+        loss_at_reserve: loss_at_reserve.toFixed(2),
+        percentiles: percentiles,
+        total_loss: total_loss
+    };
+}
+
+function plotDistribution(data) {
+    const trace = {
+        x: data,
+        type: 'histogram',
+    };
+
+    const layout = {
+        title: 'Loss Distribution',
+        xaxis: { title: 'Loss' },
+        yaxis: { title: 'Frequency' },
+    };
+
+    Plotly.newPlot('plots', [trace], layout);
+}
