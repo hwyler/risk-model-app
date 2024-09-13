@@ -1,4 +1,7 @@
+// Function to run the risk model simulation
 function riskModel(simulations, lower, upper, confidence_level, events, reserve) {
+  console.log("Running risk model..."); // Debugging step
+
   // Calculate parameters
   let log_ratio = Math.log(upper / lower);
   let true_mean_log = (Math.log(lower) + Math.log(upper)) / 2;
@@ -26,11 +29,13 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   let std_loss = Math.sqrt(total_loss.reduce((a, b) => a + Math.pow(b - mean_loss, 2), 0) / simulations);
   let var = total_loss.sort((a, b) => a - b)[Math.floor(0.95 * simulations)];
   let cvar = total_loss.filter(x => x > var).reduce((a, b) => a + b, 0) / total_loss.filter(x => x > var).length;
-  let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * 100 * simulations / 100)];
+  let loss_at_reserve = total_loss.sort((a, b) => a - b)[Math.floor(reserve * simulations)];
   let percentiles = {};
   for (let p = 10; p <= 99; p += 10) {
     percentiles[p] = total_loss.sort((a, b) => a - b)[Math.floor(p * simulations / 100)];
   }
+
+  console.log("Risk model completed."); // Debugging step
 
   // Return the calculated metrics
   return {
@@ -44,25 +49,36 @@ function riskModel(simulations, lower, upper, confidence_level, events, reserve)
   };
 }
 
-// Get the form data
+// Handle form submission and display the results
 document.getElementById('riskForm').addEventListener('submit', function(event) {
-  event.preventDefault();
+  event.preventDefault();  // Prevent the default form submission behavior (page reload)
 
-  let simulations = document.getElementById('simulations').value;
-  let lower = document.getElementById('lower').value;
-  let upper = document.getElementById('upper').value;
-  let confidence_level = document.getElementById('confidence_level').value;
-  let events = document.getElementById('events').value;
-  let reserve = document.getElementById('reserve').value;
+  console.log("Form submitted."); // Debugging step
+
+  let simulations = parseInt(document.getElementById('simulations').value);
+  let lower = parseFloat(document.getElementById('lower').value);
+  let upper = parseFloat(document.getElementById('upper').value);
+  let confidence_level = parseFloat(document.getElementById('confidence_level').value);
+  let events = parseInt(document.getElementById('events').value);
+  let reserve = parseFloat(document.getElementById('reserve').value);
 
   // Validate input
-  if (isNaN(simulations) || simulations <= 0 || isNaN(lower) || lower <= 0 || isNaN(upper) || upper <= 0 || isNaN(confidence_level) || confidence_level <= 0 || confidence_level > 1 || isNaN(events) || events <= 0 || isNaN(reserve) || reserve <= 0 || reserve > 1) {
+  if (
+    isNaN(simulations) || simulations <= 0 ||
+    isNaN(lower) || lower <= 0 ||
+    isNaN(upper) || upper <= 0 ||
+    isNaN(confidence_level) || confidence_level <= 0 || confidence_level > 1 ||
+    isNaN(events) || events <= 0 ||
+    isNaN(reserve) || reserve <= 0 || reserve > 1
+  ) {
     document.getElementById('results').innerHTML = "<p>Invalid input. Please enter valid numbers.</p>";
     return;
   }
 
   // Run the risk model
   let result = riskModel(simulations, lower, upper, confidence_level, events, reserve);
+
+  console.log(result);  // Debugging step: Check the result object
 
   // Display the results
   document.getElementById('results').innerHTML = `
